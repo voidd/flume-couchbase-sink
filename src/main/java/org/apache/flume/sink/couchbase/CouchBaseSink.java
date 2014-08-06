@@ -171,6 +171,7 @@ public class CouchBaseSink extends AbstractSink implements Configurable {
         try {
             txn.begin();
             int count;
+            long docCounter;
             for (count = 0; count < batchSize; ++count) {
                 Event event = channel.take();
 
@@ -179,8 +180,13 @@ public class CouchBaseSink extends AbstractSink implements Configurable {
                     break;
                 }
 
-                client.set(keyPrefix + "_" + sinkCounter.getEventDrainAttemptCount(),
-                        ttlMs, eventSerializer.getDocument(event));
+                //check counter
+                docCounter = client.incr("docCounter", 1, 0);
+                if (docCounter >= 0) {
+                    //setting document object to database.
+                    client.set(keyPrefix + String.valueOf(docCounter),
+                            ttlMs, eventSerializer.getDocument(event));
+                }
             }
             if (count <= 0) {
                 sinkCounter.incrementBatchEmptyCount();
